@@ -33,7 +33,7 @@ See http://asyncio.org/
 
 
 Trollius
-========
+--------
 
 Trollius is a portage of the ``asyncio`` project (:pep:`3156`) on Python 2.
 Trollius works on Python 2.6-3.5.
