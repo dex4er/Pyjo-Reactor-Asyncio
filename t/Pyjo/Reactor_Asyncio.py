@@ -29,12 +29,12 @@ if __name__ == '__main__':
     setenv('PYJO_REACTOR', 'Pyjo.Reactor.Asyncio')
     reactor = Pyjo.Reactor.Asyncio.new()
     is_ok(reactor.__class__.__name__, 'Pyjo_Reactor_Asyncio', 'right object')
-    is_ok(Pyjo.Reactor.Asyncio.new().__class__.__name__, 'Pyjo_Reactor_Asyncio', 'right object')
+    like_ok(Pyjo.Reactor.Asyncio.new().__class__.__name__, r'^Pyjo_Reactor_(Asyncio|Select|Poll)$', 'right object')
     reactor = None
-    is_ok(Pyjo.Reactor.Asyncio.new().__class__.__name__, 'Pyjo_Reactor_Asyncio', 'right object')
+    like_ok(Pyjo.Reactor.Asyncio.new().__class__.__name__, r'^Pyjo_Reactor_(Asyncio|Select|Poll)$', 'right object')
     import Pyjo.IOLoop
     reactor = Pyjo.IOLoop.singleton.reactor
-    is_ok(reactor.__class__.__name__, 'Pyjo_Reactor_Asyncio', 'right object')
+    like_ok(reactor.__class__.__name__, r'^Pyjo_Reactor_(Asyncio|Select|Poll)$', 'right object')
 
     # Make sure it stops automatically when not watching for events
     triggered = Value(0)
@@ -189,7 +189,7 @@ if __name__ == '__main__':
     ok(not writable.get(), 'io event was not triggered again')
     ok(not recurring.get(), 'recurring was not triggered again')
     reactor2 = Pyjo.Reactor.Asyncio.new()
-    is_ok(reactor2.__class__.__name__, 'Pyjo_Reactor_Asyncio', 'right object')
+    like_ok(reactor2.__class__.__name__, r'^Pyjo_Reactor_(Asyncio|Select|Poll)$', 'right object')
 
     # Reset while watchers are active
     writable = Value(0)
@@ -298,7 +298,7 @@ if __name__ == '__main__':
     # Reactor in control
     setenv('PYJO_REACTOR', 'Pyjo.Reactor.Asyncio')
 
-    is_ok(Pyjo.IOLoop.singleton.reactor.__class__.__name__, 'Pyjo_Reactor_Asyncio', 'right object')
+    like_ok(Pyjo.IOLoop.singleton.reactor.__class__.__name__, r'^Pyjo_Reactor_(Asyncio|Select|Poll)$', 'right object')
     ok(not Pyjo.IOLoop.is_running(), 'loop is not running')
     buf = Value('')
     server_err = Value('')

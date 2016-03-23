@@ -58,7 +58,10 @@ Classes
 -------
 """
 
+import Pyjo.Reactor.Base
 import Pyjo.Reactor.Select
+
+import importlib
 
 try:
     import asyncio
@@ -66,7 +69,7 @@ except ImportError:
     try:
         import trollius as asyncio
     except ImportError:
-        import asyncio
+        import asyncio  # again for better error message
 
 import weakref
 
@@ -79,6 +82,8 @@ DEBUG = getenv('PYJO_REACTOR_DEBUG', False)
 
 setenv('PYJO_REACTOR', getenv('PYJO_REACTOR', 'Pyjo.Reactor.Asyncio'))
 
+loop = None
+
 
 class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
     """
@@ -86,10 +91,34 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
     :mod:`Pyjo.Reactor.Select` and implements the following new ones.
     """
 
+    def __new__(cls, **kwargs):
+        global loop
+
+        # Fallback to standard reactor if another on Python 2.x
+        if asyncio.__name__ != 'asyncio' and loop:
+            module = importlib.import_module(Pyjo.Reactor.Base.detect(''))
+            return module.new(**kwargs)
+        else:
+            return super(Pyjo_Reactor_Asyncio, cls).__new__(cls, **kwargs)
+
     def __init__(self, **kwargs):
+        """
+
+            reactor = Pyjo.Reactor.Asyncio.new()
+            reactor2 = Pyjo.Reactor.Asyncio.new()
+
+        Creates new reactor based on asyncio main loop. It uses existing
+        asyncio loop for first object and created new async io loop for another.
+        """
         super(Pyjo_Reactor_Asyncio, self).__init__(**kwargs)
 
-        self._loop = asyncio.new_event_loop()
+        global loop
+
+        if loop:
+            self._loop = asyncio.new_event_loop()
+        else:
+            loop = asyncio.get_event_loop()
+            self._loop = loop
 
     def again(self, tid):
         """::
