@@ -157,8 +157,8 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         the reactor, so you need to be careful. Meant to be overloaded in a subclass.
         """
         loop = self.loop
-        loop.stop()
         if not loop.is_running():
+            loop.stop()
             loop.run_forever()
 
     def recurring(self, cb, after):
