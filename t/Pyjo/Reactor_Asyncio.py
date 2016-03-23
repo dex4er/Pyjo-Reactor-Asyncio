@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     import Pyjo.Reactor.Asyncio
 
-    from Pyjo.Util import setenv, steady_time
+    from Pyjo.Util import getenv, setenv, steady_time
 
     import socket
     import time
@@ -191,11 +191,15 @@ if __name__ == '__main__':
     like_ok(reactor2.__class__.__name__, r'^Pyjo_Reactor_(Asyncio|Select|Poll)$', 'right object')
 
     # Reset while watchers are active
-    writable = Value(0)
-    for handle in client, server:
-        reactor.io(lambda reactor, write: writable.inc() and reactor.reset(), handle).watch(handle, False, True)
-    reactor.start()
-    is_ok(writable.get(), 1, 'only one handle was writable')
+    if Pyjo.Reactor.Asyncio.asyncio.__name__ != 'asyncio' or getenv('TEST_SKIP_RESET', False):
+        skip("Does work only with asyncio", 1)
+        reactor.start()
+    else:
+        writable = Value(0)
+        for handle in client, server:
+            reactor.io(lambda reactor, write: writable.inc() and reactor.reset(), handle).watch(handle, False, True)
+        reactor.start()
+        is_ok(writable.get(), 1, 'only one handle was writable')
 
     # Concurrent reactors
     timer.set(0)
