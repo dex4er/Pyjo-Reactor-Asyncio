@@ -154,7 +154,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
             reactor.one_tick()
 
         Run reactor until an event occurs. Note that this method can recurse back into
-        the reactor, so you need to be careful. Meant to be overloaded in a subclass.
+        the reactor, so you need to be careful.
         """
         loop = self.loop
         if not loop.is_running():
