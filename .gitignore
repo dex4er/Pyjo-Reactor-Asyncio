@@ -1,0 +1,13 @@
+/build
+/dist
+.DS_Store
+.project
+.pydevproject
+.settings
+__pycache__
+*.class
+*.egg
+*.egg-info
+*.exe
+*.pyc
+*.whl
