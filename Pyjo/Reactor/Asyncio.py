@@ -217,6 +217,8 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
             timer = self._timers[tid]
             if 'handler' in timer:
                 timer['handler'].cancel()
+        loop.stop()
+        self.loop = asyncio.new_event_loop()
         super(Pyjo_Reactor_Asyncio, self).reset()
 
     def start(self):
