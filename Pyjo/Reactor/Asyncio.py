@@ -76,7 +76,6 @@ import weakref
 from Pyjo.Util import getenv, setenv, warn
 
 
-WATCHER_DELAY = 0.01
 DEBUG = getenv('PYJO_REACTOR_DEBUG', False)
 
 loop = None
@@ -157,9 +156,13 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         the reactor, so you need to be careful.
         """
         loop = self.loop
-        if not loop.is_running():
-            loop.stop()
-            loop.run_forever()
+
+        if loop.is_running():
+            return
+
+        loop.call_soon(loop.stop)
+
+        loop.run_forever()
 
     def recurring(self, cb, after):
         """::
@@ -205,18 +208,24 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         Remove all handles and timers.
         """
         loop = self.loop
+
         for fd in self._ios:
             io = self._ios[fd]
+
             if 'has_reader' in io:
                 loop.remove_reader(fd)
                 del io['has_reader']
+
             if 'has_writer' in io:
                 loop.remove_writer(fd)
                 del io['has_writer']
+
         for tid in self._timers:
             timer = self._timers[tid]
+
             if 'handler' in timer:
                 timer['handler'].cancel()
+
         loop.stop()
         self.loop = asyncio.new_event_loop()
         super(Pyjo_Reactor_Asyncio, self).reset()
@@ -234,13 +243,11 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         if loop.is_running():
             return
 
-        def watcher_cb():
-            if self._ios or self._timers:
-                loop.call_later(WATCHER_DELAY, watcher_cb)
-            else:
-                loop.stop()
+        def stop_if_no_events(self):
+            if not self._timers and not self._ios:
+                self.stop()
 
-        loop.call_later(WATCHER_DELAY, watcher_cb)
+        loop.call_soon(stop_if_no_events, self)
         loop.run_forever()
 
     def stop(self):
@@ -310,14 +317,20 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
 
         def timer_cb(self):
             timer = self._timers[tid]
+
             if DEBUG:
                 warn("-- Alarm timer[{0}] = {1}".format(tid, timer))
+
             if recurring:
                 handler = self.loop.call_later(timer['recurring'], timer_cb, self)
                 timer['handler'] = handler
             else:
                 self.remove(tid)
+
             self._sandbox(timer['cb'], 'Timer {0}'.format(tid))
+
+            if not self._timers and not self._ios:
+                self.stop()
 
         self._timers[tid]['handler'] = self.loop.call_later(after, timer_cb, self)
 
