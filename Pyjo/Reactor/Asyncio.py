@@ -257,7 +257,9 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
 
         Stop watching for I/O and timer events.
         """
-        self.loop.stop()
+        loop = self.loop
+        if loop.is_running():
+            self.loop.stop()
 
     def timer(self, cb, after):
         """::
@@ -284,6 +286,9 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
             if fd in self._ios:
                 io = self._ios[fd]
                 self._sandbox(io['cb'], message, is_write)
+
+            if not self._timers and not self._ios:
+                self.stop()
 
         if fd not in self._ios:
             self._ios[fd] = {}
