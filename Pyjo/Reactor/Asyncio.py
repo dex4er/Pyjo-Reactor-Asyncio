@@ -115,7 +115,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         self.loop = None
         """::
 
-            loop = asyncio.get_event_loop()
+            reactor.loop = asyncio.new_event_loop()
 
         asyncio main event loop.
         """
