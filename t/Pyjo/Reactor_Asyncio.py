@@ -281,7 +281,7 @@ if __name__ == '__main__':
 
     # Recursion
     timer = Value(0)
-    reactor2 = reactor.new()
+    reactor2 = Pyjo.Reactor.Asyncio.new()
     reactor2.timer(lambda reactor2: timer.inc() and reactor2.one_tick(), 0)
     reactor2.one_tick()
     is_ok(timer.get(), 1, 'timer was triggered once')
