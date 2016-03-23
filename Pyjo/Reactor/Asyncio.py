@@ -153,10 +153,10 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
             fd = remove.fileno()
             if fd in self._ios:
                 if 'has_reader' in self._ios[fd]:
-                    self._loop.remove_reader(fd);
+                    self._loop.remove_reader(fd)
                     del self._ios[fd]['has_reader']
                 if 'has_writer' in self._ios[fd]:
-                    self._loop.remove_writer(fd);
+                    self._loop.remove_writer(fd)
                     del self._ios[fd]['has_writer']
 
         super(Pyjo_Reactor_Asyncio, self).remove(remove)
@@ -265,7 +265,6 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
             del io['has_writer']
 
         return self
-
 
     def _timer(self, cb, recurring, after):
         tid = super(Pyjo_Reactor_Asyncio, self)._timer(cb, recurring, after)
