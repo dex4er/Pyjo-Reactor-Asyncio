@@ -77,12 +77,11 @@ from Pyjo.Util import getenv, setenv, warn
 
 
 WATCHER_DELAY = 0.01
-
 DEBUG = getenv('PYJO_REACTOR_DEBUG', False)
 
-setenv('PYJO_REACTOR', getenv('PYJO_REACTOR', 'Pyjo.Reactor.Asyncio'))
-
 loop = None
+
+setenv('PYJO_REACTOR', getenv('PYJO_REACTOR', 'Pyjo.Reactor.Asyncio'))
 
 
 class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
@@ -105,20 +104,28 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         """
 
             reactor = Pyjo.Reactor.Asyncio.new()
-            reactor2 = Pyjo.Reactor.Asyncio.new()
+            reactor2 = Pyjo.Reactor.Asyncio.new(loop=asyncio.get_event_loop())
 
         Creates new reactor based on asyncio main loop. It uses existing
-        asyncio loop for first object and created new async io loop for another.
+        asyncio loop for first object and create new async io loop for another.
         """
         super(Pyjo_Reactor_Asyncio, self).__init__(**kwargs)
 
         global loop
 
-        if loop:
-            self._loop = asyncio.new_event_loop()
-        else:
+        self.loop = None
+        """::
+
             loop = asyncio.get_event_loop()
-            self._loop = loop
+
+        asyncio main event loop.
+        """
+
+        if loop:
+            self.loop = asyncio.new_event_loop()
+        else:
+            self.loop = asyncio.get_event_loop()
+            loop = self.loop
 
     def again(self, tid):
         """::
@@ -129,7 +136,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         """
         timer = self._timers[tid]
         timer['handler'].cancel()
-        timer['handler'] = self._loop.call_later(timer['after'], timer['cb'], self)
+        timer['handler'] = self.loop.call_later(timer['after'], timer['cb'], self)
 
     @property
     def is_running(self):
@@ -139,7 +146,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
 
         Check if reactor is running.
         """
-        return self._loop.is_running()
+        return self.loop.is_running()
 
     def one_tick(self):
         """::
@@ -149,7 +156,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         Run reactor until an event occurs. Note that this method can recurse back into
         the reactor, so you need to be careful. Meant to be overloaded in a subclass.
         """
-        loop = self._loop
+        loop = self.loop
         loop.stop()
         if not loop.is_running():
             loop.run_forever()
@@ -182,10 +189,10 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
             fd = remove.fileno()
             if fd in self._ios:
                 if 'has_reader' in self._ios[fd]:
-                    self._loop.remove_reader(fd)
+                    self.loop.remove_reader(fd)
                     del self._ios[fd]['has_reader']
                 if 'has_writer' in self._ios[fd]:
-                    self._loop.remove_writer(fd)
+                    self.loop.remove_writer(fd)
                     del self._ios[fd]['has_writer']
 
         super(Pyjo_Reactor_Asyncio, self).remove(remove)
@@ -197,7 +204,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
 
         Remove all handles and timers.
         """
-        loop = self._loop
+        loop = self.loop
         for fd in self._ios:
             io = self._ios[fd]
             if 'has_reader' in io:
@@ -220,7 +227,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         Start watching for I/O and timer events, this will block until :meth:`stop` is
         called or there is no any active I/O or timer event.
         """
-        loop = self._loop
+        loop = self.loop
 
         if loop.is_running():
             return
@@ -241,7 +248,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
 
         Stop watching for I/O and timer events.
         """
-        self._loop.stop()
+        self.loop.stop()
 
     def timer(self, cb, after):
         """::
@@ -275,22 +282,22 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
 
         if read:
             if 'has_reader' in io:
-                self._loop.remove_reader(fd)
+                self.loop.remove_reader(fd)
             else:
                 io['has_reader'] = True
-            self._loop.add_reader(fd, io_cb, self, "Read fd {0}".format(fd), False, fd)
+            self.loop.add_reader(fd, io_cb, self, "Read fd {0}".format(fd), False, fd)
         elif 'has_reader' in io:
-            self._loop.remove_reader(fd)
+            self.loop.remove_reader(fd)
             del io['has_reader']
 
         if write:
             if 'has_writer' in io:
-                self._loop.remove_writer(fd)
+                self.loop.remove_writer(fd)
             else:
                 io['has_writer'] = True
-            self._loop.add_writer(fd, io_cb, self, "Write fd {0}".format(fd), True, fd)
+            self.loop.add_writer(fd, io_cb, self, "Write fd {0}".format(fd), True, fd)
         elif 'has_writer' in io:
-            self._loop.remove_writer(fd)
+            self.loop.remove_writer(fd)
             del io['has_writer']
 
         return self
@@ -304,13 +311,13 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
             if DEBUG:
                 warn("-- Alarm timer[{0}] = {1}".format(tid, timer))
             if recurring:
-                handler = self._loop.call_later(timer['recurring'], timer_cb, self)
+                handler = self.loop.call_later(timer['recurring'], timer_cb, self)
                 timer['handler'] = handler
             else:
                 self.remove(tid)
             self._sandbox(timer['cb'], 'Timer {0}'.format(tid))
 
-        self._timers[tid]['handler'] = self._loop.call_later(after, timer_cb, self)
+        self._timers[tid]['handler'] = self.loop.call_later(after, timer_cb, self)
 
         return tid
 

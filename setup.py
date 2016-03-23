@@ -28,8 +28,8 @@ setup(
     ],
     test_suite='test.TestSuite',
     install_requires=[
-        ':python_version < "3.0"': [
-            'trollius',
-        ],
+#        ':python_version < "3.0"': [
+#            'trollius',
+#        ],
     ],
 )
