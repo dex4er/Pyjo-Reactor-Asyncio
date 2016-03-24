@@ -294,24 +294,26 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
             self._ios[fd] = {}
         io = self._ios[fd]
 
+        loop = self.loop
+
         if read:
             if 'has_reader' in io:
-                self.loop.remove_reader(fd)
+                loop.remove_reader(fd)
             else:
                 io['has_reader'] = True
-            self.loop.add_reader(fd, io_cb, self, "Read fd {0}".format(fd), False, fd)
+            loop.add_reader(fd, io_cb, self, "Read fd {0}".format(fd), False, fd)
         elif 'has_reader' in io:
-            self.loop.remove_reader(fd)
+            loop.remove_reader(fd)
             del io['has_reader']
 
         if write:
             if 'has_writer' in io:
-                self.loop.remove_writer(fd)
+                loop.remove_writer(fd)
             else:
                 io['has_writer'] = True
-            self.loop.add_writer(fd, io_cb, self, "Write fd {0}".format(fd), True, fd)
+            loop.add_writer(fd, io_cb, self, "Write fd {0}".format(fd), True, fd)
         elif 'has_writer' in io:
-            self.loop.remove_writer(fd)
+            loop.remove_writer(fd)
             del io['has_writer']
 
         return self
