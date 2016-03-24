@@ -33,4 +33,7 @@ def server(loop, stream, cid):
                 stream.close_gracefully()
 
 
-Pyjo.IOLoop.start()
+try:
+    Pyjo.IOLoop.start()
+except KeyboardInterrupt:
+    Pyjo.IOLoop.reset()
