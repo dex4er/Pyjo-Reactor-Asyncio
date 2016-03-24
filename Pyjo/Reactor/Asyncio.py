@@ -61,8 +61,6 @@ Classes
 import Pyjo.Reactor.Base
 import Pyjo.Reactor.Select
 
-import importlib
-
 try:
     import asyncio
 except ImportError:
@@ -78,7 +76,16 @@ from Pyjo.Util import getenv, setenv, warn
 
 DEBUG = getenv('PYJO_REACTOR_DEBUG', False)
 
-loop = None
+loop = asyncio.get_event_loop()
+"""::
+
+    Pyjo.Reactor.Asyncio.loop = asyncio.new_event_loop()
+
+The :mod:`asyncio` event loop used by first :mod:`Pyjo.Reactor.Asyncio`
+object. The default value is ``asyncio.get_event_loop()``.
+"""
+
+_counter = 0
 
 setenv('PYJO_REACTOR', getenv('PYJO_REACTOR', 'Pyjo.Reactor.Asyncio'))
 
@@ -89,16 +96,6 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
     :mod:`Pyjo.Reactor.Select` and implements the following new ones.
     """
 
-    def __new__(cls, **kwargs):
-        global loop
-
-        # Fallback to standard reactor if another on Python 2.x
-        if asyncio.__name__ != 'asyncio' and loop:
-            module = importlib.import_module(Pyjo.Reactor.Base.detect(''))
-            return module.new(**kwargs)
-        else:
-            return super(Pyjo_Reactor_Asyncio, cls).__new__(cls, **kwargs)
-
     def __init__(self, **kwargs):
         """
 
@@ -106,25 +103,41 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
             reactor2 = Pyjo.Reactor.Asyncio.new(loop=asyncio.get_event_loop())
 
         Creates new reactor based on asyncio main loop. It uses existing
-        asyncio loop for first object and create new async io loop for another.
+        :mod:`asyncio` loop for first object and create new async io loop for
+        another.
         """
         super(Pyjo_Reactor_Asyncio, self).__init__(**kwargs)
 
-        global loop
+        global loop, _counter
 
-        self.loop = None
+        self.loop = kwargs.get('loop')
         """::
 
-            reactor.loop = asyncio.new_event_loop()
+            asyncio_loop = reactor.loop
 
         asyncio main event loop.
         """
 
-        if loop:
-            self.loop = asyncio.new_event_loop()
-        else:
-            self.loop = asyncio.get_event_loop()
-            loop = self.loop
+        self.auto_stop = kwargs.get('auto_stop', not self.loop)
+        """::
+
+            auto_stop = reactor.auto_stop
+            reactor.auto_stop = False
+
+        :mod:`asyncio` loop will be stopped if there is no active I/O or timer
+        events in :mod:`Pyjo.Reactor.Asyncio`.
+
+        This is disabled by default if ``loop`` is provided and enabled
+        otherwise.
+        """
+
+        if not self.loop:
+            if _counter:
+                self.loop = asyncio.new_event_loop()
+            else:
+                self.loop = loop
+
+        _counter += 1
 
     def again(self, tid):
         """::
@@ -243,11 +256,13 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         if loop.is_running():
             return
 
-        def stop_if_no_events(self):
-            if not self._timers and not self._ios:
-                self.stop()
+        if self.auto_stop:
+            def stop_if_no_events(self):
+                if not self._timers and not self._ios:
+                    self.stop()
 
-        loop.call_soon(stop_if_no_events, self)
+            loop.call_soon(stop_if_no_events, self)
+
         loop.run_forever()
 
     def stop(self):
@@ -287,7 +302,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
                 io = self._ios[fd]
                 self._sandbox(io['cb'], message, is_write)
 
-            if not self._timers and not self._ios:
+            if self.auto_stop and not self._timers and not self._ios:
                 self.stop()
 
         if fd not in self._ios:
@@ -336,7 +351,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
 
             self._sandbox(timer['cb'], 'Timer {0}'.format(tid))
 
-            if not self._timers and not self._ios:
+            if self.auto_stop and not self._timers and not self._ios:
                 self.stop()
 
         self._timers[tid]['handler'] = self.loop.call_later(after, timer_cb, self)
