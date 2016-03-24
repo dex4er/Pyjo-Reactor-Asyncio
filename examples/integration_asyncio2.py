@@ -40,3 +40,4 @@ asyncio_loop.call_later(1, hello_asyncio_cb)
 
 
 asyncio_loop.run_forever()
+asyncio_loop.close()
