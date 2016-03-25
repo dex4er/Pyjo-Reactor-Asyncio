@@ -52,14 +52,13 @@ dies with exception. ::
 Events
 ------
 
-:mod:`Pyjo.Reactor.Asyncio` inherits all events from :mod:`Pyjo.Reactor.Select`.
+:mod:`Pyjo.Reactor.Asyncio` inherits all events from :mod:`Pyjo.Reactor.Base`.
 
 Classes
 -------
 """
 
 import Pyjo.Reactor.Base
-import Pyjo.Reactor.Select
 
 try:
     import asyncio
@@ -71,10 +70,11 @@ except ImportError:
 
 import weakref
 
-from Pyjo.Util import getenv, setenv, warn
+from Pyjo.Util import getenv, md5_sum, rand, setenv, steady_time, warn
 
 
 DEBUG = getenv('PYJO_REACTOR_DEBUG', False)
+DIE = getenv('PYJO_REACTOR_DIE', False)
 
 loop = asyncio.get_event_loop()
 """::
@@ -85,15 +85,15 @@ The :mod:`asyncio` event loop used by first :mod:`Pyjo.Reactor.Asyncio`
 object. The default value is ``asyncio.get_event_loop()``.
 """
 
-_counter = 0
+_instance_counter = 0
 
 setenv('PYJO_REACTOR', getenv('PYJO_REACTOR', 'Pyjo.Reactor.Asyncio'))
 
 
-class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
+class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Base.object):
     """
     :mod:`Pyjo.Reactor.Asyncio` inherits all attributes and methods from
-    :mod:`Pyjo.Reactor.Select` and implements the following new ones.
+    :mod:`Pyjo.Reactor.Base` and implements the following new ones.
     """
 
     def __init__(self, **kwargs):
@@ -108,7 +108,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         """
         super(Pyjo_Reactor_Asyncio, self).__init__(**kwargs)
 
-        global loop, _counter
+        global loop, _instance_counter
 
         self.loop = kwargs.get('loop')
         """::
@@ -120,24 +120,24 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
 
         self.auto_stop = kwargs.get('auto_stop', not self.loop)
         """::
-
             auto_stop = reactor.auto_stop
             reactor.auto_stop = False
-
         :mod:`asyncio` loop will be stopped if there is no active I/O or timer
         events in :mod:`Pyjo.Reactor.Asyncio`.
-
         This is disabled by default if ``loop`` is provided and enabled
         otherwise.
         """
 
+        self._ios = {}
+        self._timers = {}
+
         if not self.loop:
-            if _counter:
+            if _instance_counter:
                 self.loop = asyncio.new_event_loop()
             else:
                 self.loop = loop
 
-        _counter += 1
+        _instance_counter += 1
 
     def again(self, tid):
         """::
@@ -147,8 +147,30 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         Restart active timer.
         """
         timer = self._timers[tid]
-        timer['handler'].cancel()
-        timer['handler'] = self.loop.call_later(timer['after'], timer['cb'], self)
+
+        # Warning: this is private property of TimeHandler
+        timer['handler']._when = self.loop.time() + timer['after']
+
+    def io(self, cb, handle):
+        """::
+
+            reactor = reactor.io(cb, handle)
+
+        Watch handle for I/O events, invoking the callback whenever handle becomes
+        readable or writable.
+        """
+        fd = handle.fileno()
+
+        if fd in self._ios:
+            self._ios[fd]['cb'] = cb
+            if DEBUG:
+                warn("-- Reactor found io[{0}] = {1}".format(fd, self._ios[fd]))
+        else:
+            self._ios[fd] = {'cb': cb, 'reader': False, 'writer': False}
+            if DEBUG:
+                warn("-- Reactor adding io[{0}] = {1}".format(fd, self._ios[fd]))
+
+        return self.watch(handle, True, True)
 
     @property
     def is_running(self):
@@ -195,23 +217,40 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
 
         Remove handle or timer.
         """
+        if remove is None:
+            if DEBUG:
+                warn("-- Reactor remove None")
+            return
+
         if isinstance(remove, str):
+            if DEBUG:
+                if remove in self._timers:
+                    warn("-- Reactor remove timer[{0}] = {1}".format(remove, self._timers[remove]))
+                else:
+                    warn("-- Reactor remove timer[{0}] = None".format(remove))
+
             if remove in self._timers:
-                if 'handler' in self._timers[remove]:
-                    self._timers[remove]['handler'].cancel()
-                    del self._timers[remove]['handler']
+                self._timers[remove]['handler'].cancel()
+                del self._timers[remove]
 
-        elif remove is not None:
-            fd = remove.fileno()
+        else:
+            if hasattr(remove, 'fileno'):
+                fd = remove.fileno()
+            else:
+                fd = remove
+
+            if DEBUG:
+                if fd in self._ios:
+                    warn("-- Reactor remove fd {0} = {1}".format(fd, self._ios[fd]))
+                else:
+                    warn("-- Reactor remove fd {0} = None".format(fd))
+
             if fd in self._ios:
-                if 'has_reader' in self._ios[fd]:
+                if 'reader' in self._ios[fd]:
                     self.loop.remove_reader(fd)
-                    del self._ios[fd]['has_reader']
-                if 'has_writer' in self._ios[fd]:
+                if 'writer' in self._ios[fd]:
                     self.loop.remove_writer(fd)
-                    del self._ios[fd]['has_writer']
-
-        super(Pyjo_Reactor_Asyncio, self).remove(remove)
+                del self._ios[fd]
 
     def reset(self):
         """::
@@ -225,23 +264,27 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         for fd in self._ios:
             io = self._ios[fd]
 
-            if 'has_reader' in io:
+            if io['reader']:
+                if DEBUG:
+                    warn("-- Reactor reset fd {0} reader".format(fd))
                 loop.remove_reader(fd)
-                del io['has_reader']
 
-            if 'has_writer' in io:
+            if io['writer']:
+                if DEBUG:
+                    warn("-- Reactor reset fd {0} writer".format(fd))
                 loop.remove_writer(fd)
-                del io['has_writer']
+
+        self._ios = {}
 
         for tid in self._timers:
             timer = self._timers[tid]
 
-            if 'handler' in timer:
+            if timer['handler']:
+                if DEBUG:
+                    warn("-- Reactor timer[{0}]".format(tid))
                 timer['handler'].cancel()
 
-        loop.stop()
-        self.loop = asyncio.new_event_loop()
-        super(Pyjo_Reactor_Asyncio, self).reset()
+        self._timers = {}
 
     def start(self):
         """::
@@ -295,66 +338,94 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Select.object):
         that this method requires an active I/O watcher.
         """
         fd = handle.fileno()
-        self = weakref.proxy(self)
 
-        def io_cb(self, message, is_write, fd):
-            if fd in self._ios:
-                io = self._ios[fd]
-                self._sandbox(io['cb'], message, is_write)
+        def io_cb(reactor, cb, message, write, fd):
+            if DEBUG:
+                warn("-- Reactor {0} = {1}".format(message, reactor._ios[fd] if fd in reactor._ios else None))
 
-            if self.auto_stop and not self._timers and not self._ios:
-                self.stop()
+            if DIE:
+                cb(reactor, write)
+            else:
+                try:
+                    cb(reactor, write)
+                except Exception as e:
+                    reactor.emit('error', e, message)
+
+            if self.auto_stop and not reactor._ios and not reactor._timers:
+                reactor.stop()
 
         if fd not in self._ios:
-            self._ios[fd] = {}
+            self._ios[fd] = {'reader': False, 'writer': False}
+
         io = self._ios[fd]
+        cb = io['cb']
 
         loop = self.loop
 
         if read:
-            if 'has_reader' in io:
+            if io['reader']:
                 loop.remove_reader(fd)
             else:
-                io['has_reader'] = True
-            loop.add_reader(fd, io_cb, self, "Read fd {0}".format(fd), False, fd)
-        elif 'has_reader' in io:
+                io['reader'] = True
+            if DEBUG:
+                warn("-- Reactor add fd {0} reader".format(fd))
+            loop.add_reader(fd, io_cb, weakref.proxy(self), cb, "Read fd {0}".format(fd), False, fd)
+        elif io['reader']:
+            if DEBUG:
+                warn("-- Reactor remove fd {0} reader".format(fd))
             loop.remove_reader(fd)
-            del io['has_reader']
+            io['reader'] = False
 
         if write:
-            if 'has_writer' in io:
+            if io['writer']:
                 loop.remove_writer(fd)
             else:
-                io['has_writer'] = True
-            loop.add_writer(fd, io_cb, self, "Write fd {0}".format(fd), True, fd)
-        elif 'has_writer' in io:
+                io['writer'] = True
+            if DEBUG:
+                warn("-- Reactor add fd {0} writer".format(fd))
+            loop.add_writer(fd, io_cb, weakref.proxy(self), cb, "Write fd {0}".format(fd), True, fd)
+        elif io['writer']:
+            if DEBUG:
+                warn("-- Reactor remove fd {0} writer".format(fd))
             loop.remove_writer(fd)
-            del io['has_writer']
+            io['writer'] = False
 
         return self
 
     def _timer(self, cb, recurring, after):
-        tid = super(Pyjo_Reactor_Asyncio, self)._timer(cb, recurring, after)
-        self = weakref.proxy(self)
+        tid = None
+        while True:
+            tid = md5_sum('t{0}{1}'.format(steady_time(), rand()).encode('ascii'))
+            if tid not in self._timers:
+                break
 
-        def timer_cb(self):
-            timer = self._timers[tid]
+        timer = {'cb': cb, 'after': after, 'recurring': recurring}
 
+        if DEBUG:
+            warn("-- Reactor adding timer[{0}] = {1}".format(tid, timer))
+
+        def timer_cb(reactor, cb, recurring, after, tid):
             if DEBUG:
-                warn("-- Alarm timer[{0}] = {1}".format(tid, timer))
+                warn("-- Reactor alarm timer[{0}] = {1}".format(tid, reactor._timers[tid]))
 
             if recurring:
-                handler = self.loop.call_later(timer['recurring'], timer_cb, self)
-                timer['handler'] = handler
+                reactor._timers[tid]['handler'] = reactor.loop.call_later(after, timer_cb, reactor, cb, recurring, after, tid)
             else:
-                self.remove(tid)
+                reactor.remove(tid)
 
-            self._sandbox(timer['cb'], 'Timer {0}'.format(tid))
+            if DIE:
+                cb(reactor)
+            else:
+                try:
+                    cb(reactor)
+                except Exception as e:
+                    reactor.emit('error', e, 'Timer {0}'.format(tid))
 
-            if self.auto_stop and not self._timers and not self._ios:
-                self.stop()
+            if self.auto_stop and not reactor._ios and not reactor._timers:
+                reactor.stop()
 
-        self._timers[tid]['handler'] = self.loop.call_later(after, timer_cb, self)
+        timer['handler'] = self.loop.call_later(after, timer_cb, weakref.proxy(self), cb, recurring, after, tid)
+        self._timers[tid] = timer
 
         return tid
 
