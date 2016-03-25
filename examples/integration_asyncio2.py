@@ -10,10 +10,8 @@ import Pyjo.IOLoop
 
 
 asyncio_loop = asyncio.get_event_loop()
-
-# asyncio.get_event_loop() is used by first Pyjo.Reactor.Asyncio object by
-# default. Explicit usage:
-# Pyjo.IOLoop.singleton = Pyjo.IOLoop.new(reactor=Pyjo.Reactor.Asyncio.new(loop=loop))
+pyjo_reactor = Pyjo.Reactor.Asyncio.new(loop=asyncio_loop)
+Pyjo.IOLoop.singleton = Pyjo.IOLoop.new(reactor=pyjo_reactor)
 
 
 counter = 0
@@ -36,8 +34,9 @@ def hello_asyncio_cb():
     print("This message is from asyncio")
     stop_after_all_events()
 
-asyncio_loop.call_later(1, hello_asyncio_cb)
+asyncio_loop.call_later(2, hello_asyncio_cb)
 
 
+# Pyjo.IOLoop will not stop asyncio loop because was provided as param for Pyjo reactor
 asyncio_loop.run_forever()
 asyncio_loop.close()
