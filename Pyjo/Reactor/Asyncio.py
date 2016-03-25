@@ -118,7 +118,7 @@ class Pyjo_Reactor_Asyncio(Pyjo.Reactor.Base.object):
         asyncio main event loop.
         """
 
-        self.auto_stop = kwargs.get('auto_stop', not self.loop)
+        self.auto_stop = kwargs.get('auto_stop', lambda: not self.loop)
         """::
             auto_stop = reactor.auto_stop
             reactor.auto_stop = False
