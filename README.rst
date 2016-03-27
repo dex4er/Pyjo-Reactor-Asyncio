@@ -29,8 +29,8 @@ This module provides infrastructure for writing single-threaded concurrent code
 using coroutines, multiplexing I/O access over sockets and other resources,
 running network clients and servers, and other related primitives.
 
-The asyncio module was designed in PEP 3156_. For a motivational primer on
-transports and protocols, see PEP 3153_.
+The asyncio module was designed in PEP3156_. For a motivational primer on
+transports and protocols, see PEP3153_.
 
 See http://asyncio.org/
 
@@ -38,11 +38,11 @@ See http://asyncio.org/
 Trollius
 ========
 
-Trollius is a portage of the asyncio project (PEP 3156_) on Python 2.
+Trollius is a portage of the asyncio project (PEP3156_) on Python 2.
 Trollius works on Python 2.6-3.5.
 
 See https://trollius.readthedocs.org/
 
 
-.. _PEP 3153: https://www.python.org/dev/peps/pep-3153/
-.. _PEP 3156: https://www.python.org/dev/peps/pep-3156/
+.. _PEP3153: https://www.python.org/dev/peps/pep-3153/
+.. _PEP3156: https://www.python.org/dev/peps/pep-3156/
