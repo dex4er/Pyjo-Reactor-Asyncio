@@ -34,6 +34,9 @@ setup(
         'Pyjoyment',
     ],
     extras_require={
+       ':python_version >= "3.0" and python_version < "3.4"': [
+           'asyncio',
+       ],
        ':python_version < "3.0"': [
            'trollius',
        ],
