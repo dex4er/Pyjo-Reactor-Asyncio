@@ -2,6 +2,7 @@
 Pyjo-Reactor-Asyncio |release| documentation
 ============================================
 
+Low level event reactor with asyncio support for Pyjoyment.
 
 
 Table Of Contents
@@ -12,6 +13,7 @@ Table Of Contents
 
     intro
     installation
+    examples
     api/index
     authors
     license
