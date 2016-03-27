@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='Pyjo-Reactor-Asyncio',
-    version='0.0.1',
+    version='0.0.2',
     description='Low level event reactor for Pyjoyment with asyncio support.',
     long_description=''.join(open('README.rst').readlines()),
     author='Piotr Roszatycki',
