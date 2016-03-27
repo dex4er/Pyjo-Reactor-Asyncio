@@ -30,6 +30,9 @@ setup(
         'Programming Language :: Python :: 3.5',
     ],
     test_suite='test.TestSuite',
+    install_requires=[
+        'Pyjoyment',
+    ],
     extras_require={
        ':python_version < "3.0"': [
            'trollius',
