@@ -1,9 +1,10 @@
 .. image:: https://img.shields.io/pypi/v/Pyjo-Reactor-Asyncio.png
    :target: https://pypi.python.org/pypi/Pyjo-Reactor-Asyncio
-.. image:: https://travis-ci.org/dex4er/Pyjo-Reactor-Asyncio.png?branch=master
-   :target: https://travis-ci.org/dex4er/Pyjo-Reactor-Asyncio
-.. image:: https://readthedocs.org/projects/pyjo-reactor-asyncio/badge/?version=latest
-   :target: http://pyjo-reactor-asyncio.readthedocs.org/en/latest/
+
+.. note::
+
+   This module has been taken over by Pyjoyment: ``Pyjo.Reactor.Asyncio`` is now
+   a part of https://github.com/dex4er/Pyjoyment, where development continues.
 
 Pyjo-Reactor-Asyncio
 ====================
